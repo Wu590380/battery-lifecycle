@@ -36,7 +36,10 @@ input,select,textarea,.stNumberInput input,.stTextInput input {
     background:#141820 !important; color:#e0e4ea !important; font-size:14px !important; padding:10px 14px !important;
 }
 input:focus,select:focus { border-color:#28c780 !important; box-shadow:0 0 0 3px rgba(40,199,128,.12) !important; }
-.stSlider>div>div>div>div { background:#28c780 !important; }
+.stSlider [data-testid="stThumbValue"] { color:#fff !important; }
+.stSlider [role="slider"] { background:#28c780 !important; border-color:#28c780 !important; }
+.stSlider .st-d8, .stSlider .st-d9, .stSlider .st-d7 { background:#28c780 !important; }
+.stSlider div[data-baseweb="slider"] div { background:#28c780 !important; }
 [data-testid="stMetricValue"] { font-size:1.4rem !important; font-weight:700 !important; color:#fff !important; }
 [data-testid="stDataFrame"] { border:1px solid #2a3040; border-radius:8px; }
 [data-testid="stDataFrame"] th { background:#1a1f2b !important; color:#7a8290 !important; }
