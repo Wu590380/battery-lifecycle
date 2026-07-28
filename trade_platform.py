@@ -342,13 +342,25 @@ with col_right:
         if st.button("导出评估报告 PDF", key="pdf"):
             from fpdf import FPDF
             pdf=FPDF(); pdf.add_page()
-            pdf.set_font('Helvetica','B',14)
-            pdf.cell(0,10,'Battery Trade Assessment',align='C',new_x='LMARGIN',new_y='NEXT')
-            pdf.ln(5); pdf.set_font('Helvetica','',10)
-            for k,v in [('Model',sp_name),('SOH',f"{soh_val*100:.0f}%"),('Residual',f"{rep.residual_value_rmb:,.0f} RMB")]:
-                pdf.cell(40,7,k+':'); pdf.cell(0,7,str(v),new_x='LMARGIN',new_y='NEXT')
+            pdf.add_font("DejaVu", "", "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", uni=True)
+            pdf.add_font("DejaVu", "B", "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", uni=True)
+            pdf.set_font('DejaVu','B',14)
+            pdf.cell(0,10,sp_name,align='C',new_x='LMARGIN',new_y='NEXT')
+            pdf.set_font('DejaVu','',10)
+            pdf.cell(0,8,f"SOH: {soh_val*100:.0f}%  残值: {rep.residual_value_rmb:,.0f} RMB",align='C',new_x='LMARGIN',new_y='NEXT')
+            pdf.ln(3)
+            pdf.cell(0,8,f"全新价值: {rep.new_value_rmb:,.0f} RMB  残值率: {rep.value_retention_pct:.0f}%",align='C',new_x='LMARGIN',new_y='NEXT')
+            pdf.cell(0,8,f"梯次利用: {rep.second_life_value_rmb:,.0f} RMB  材料回收: {rep.recycle_value_rmb:,.0f} RMB",align='C',new_x='LMARGIN',new_y='NEXT')
+            pdf.cell(0,8,f"估值区间: {rep.confidence_low:,.0f} ~ {rep.confidence_high:,.0f} RMB",align='C',new_x='LMARGIN',new_y='NEXT')
+            pdf.ln(3)
+            pdf.set_font('DejaVu','',8)
+            pdf.cell(0,6,f"生成时间: {datetime.now().strftime('%Y-%m-%d %H:%M')}  来源: battery-trade.streamlit.app",align='C',new_x='LMARGIN',new_y='NEXT')
             out = Path(__file__).parent / "data" / f"report_{datetime.now().strftime('%Y%m%d%H%M')}.pdf"
-            pdf.output(str(out)); st.success(f"PDF: {out}")
+            out.parent.mkdir(exist_ok=True)
+            pdf.output(str(out))
+            st.success(f"PDF 已生成")
+            with open(out, "rb") as f:
+                st.download_button("📥 下载报告", f, file_name=out.name, mime="application/pdf")
 
         # History
         st.session_state.trade_history.insert(0, {
