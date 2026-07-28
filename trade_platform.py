@@ -101,18 +101,18 @@ with col_left:
         format_func=lambda x: f"{BATTERY_CATALOG[x].name} ({BATTERY_CATALOG[x].pack_capacity_kwh}kWh · {BATTERY_CATALOG[x].vehicle_model})")
     sp = BATTERY_CATALOG[bt]
 
-    brand_key = f"{sp_name} ({sp_vehicle} {sp_cap}kWh)"
+    brand_key = f"{sp.name} ({sp.vehicle_model} {sp.pack_capacity_kwh}kWh)"
     if "last_brand" not in st.session_state: st.session_state.last_brand = ""
     if st.session_state.last_brand != brand_key:
         st.session_state.last_brand = brand_key
-        adj = get_brand_price_for_streamlit(sp_name, sp_vehicle)
+        adj = get_brand_price_for_streamlit(sp.name, sp.vehicle_model)
         if adj:
             for k in ["mkt_lfp","mkt_ncm","mkt_nca"]:
-                st.session_state[k] = int(adj["new"] * 10000 / sp_cap)
+                st.session_state[k] = int(adj["new"] * 10000 / sp.pack_capacity_kwh)
             for k in ["mkt_recycle_lfp","mkt_recycle_ncm","mkt_recycle_nca"]:
-                st.session_state[k] = int(adj["scrap"] * 10000 / sp_cap)
+                st.session_state[k] = int(adj["scrap"] * 10000 / sp.pack_capacity_kwh)
 
-    st.markdown(f'<p class="muted">{sp_mfr} · {sp_chem} · {sp_cap}kWh · {sp_vehicle}</p>', unsafe_allow_html=True)
+    st.markdown(f'<p class="muted">{sp.manufacturer} · {sp.chemistry} · {sp.pack_capacity_kwh}kWh · {sp.vehicle_model}</p>', unsafe_allow_html=True)
     if st.session_state.get("mkt_source"): st.caption(st.session_state.mkt_source)
 
     st.markdown('<div class="card">', unsafe_allow_html=True)
