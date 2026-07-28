@@ -1,0 +1,30 @@
+# ESP32 binaries
+*.bin
+*.elf
+
+# Python
+__pycache__/
+*.pyc
+.vs/
+.idea/
+
+# Streamlit
+.streamlit/
+
+# Data files (too large)
+*.csv
+*.jsonl
+*.json
+
+# Models
+models/*.pkl
+
+# Iconify local
+iconify/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Dev proxy config
+.env
