@@ -342,11 +342,28 @@ with col_right:
         if st.button("导出评估报告 PDF", key="pdf"):
             from fpdf import FPDF
             pdf=FPDF(); pdf.add_page()
-            pdf.add_font("DejaVu", "", "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", uni=True)
-            pdf.add_font("DejaVu", "B", "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", uni=True)
-            pdf.set_font('DejaVu','B',14)
+            # Try multiple font paths for cross-platform compatibility
+            font_dirs = [
+                "/usr/share/fonts/truetype/dejavu/",
+                "/usr/share/fonts/truetype/liberation/",
+                "/usr/share/fonts/",
+            ]
+            font_loaded = False
+            for d in font_dirs:
+                try:
+                    pdf.add_font("Uni", "", d + "DejaVuSans.ttf", uni=True)
+                    pdf.add_font("Uni", "B", d + "DejaVuSans-Bold.ttf", uni=True)
+                    font_loaded = True; break
+                except: pass
+            if not font_loaded:
+                # Fallback: ASCII only with Helvetica
+                pdf.set_font('Helvetica','B',14)
+                pdf.cell(0,10,'Battery Assessment Report',align='C',new_x='LMARGIN',new_y='NEXT')
+                pdf.set_font('Helvetica','',10)
+            else:
+                pdf.set_font('Uni','B',14)
             pdf.cell(0,10,sp_name,align='C',new_x='LMARGIN',new_y='NEXT')
-            pdf.set_font('DejaVu','',10)
+            if font_loaded: pdf.set_font('Uni','',10)
             pdf.cell(0,8,f"SOH: {soh_val*100:.0f}%  残值: {rep.residual_value_rmb:,.0f} RMB",align='C',new_x='LMARGIN',new_y='NEXT')
             pdf.ln(3)
             pdf.cell(0,8,f"全新价值: {rep.new_value_rmb:,.0f} RMB  残值率: {rep.value_retention_pct:.0f}%",align='C',new_x='LMARGIN',new_y='NEXT')
