@@ -330,7 +330,7 @@ with col_right:
             pdf.ln(5); pdf.set_font('Helvetica','',10)
             for k,v in [('Model',sp.name),('SOH',f"{soh_val*100:.0f}%"),('Residual',f"{rep.residual_value_rmb:,.0f} RMB")]:
                 pdf.cell(40,7,k+':'); pdf.cell(0,7,str(v),new_x='LMARGIN',new_y='NEXT')
-            out = Path("E:/息壤杯") / f"report_{datetime.now().strftime('%Y%m%d%H%M')}.pdf"
+            out = Path(__file__).parent / "data" / f"report_{datetime.now().strftime('%Y%m%d%H%M')}.pdf"
             pdf.output(str(out)); st.success(f"PDF: {out}")
 
         # History

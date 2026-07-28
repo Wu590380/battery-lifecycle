@@ -9,7 +9,7 @@ from pathlib import Path
 from dataclasses import dataclass, field
 import json
 
-OUTPUT_DIR = Path("E:/息壤杯")
+OUTPUT_DIR = Path(__file__).parent / "data"
 OUTPUT_DIR.mkdir(exist_ok=True)
 
 
@@ -247,5 +247,5 @@ if __name__ == "__main__":
     print(f"\n  电池目录已保存: {catalog_path}")
 
     print("\n" + "=" * 60)
-    print("  模拟完成 — 数据已输出到 E:/result/")
+    print(f"  模拟完成 — 数据已输出到 {OUTPUT_DIR}")
     print("=" * 60)

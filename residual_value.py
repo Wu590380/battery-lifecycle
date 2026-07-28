@@ -11,7 +11,7 @@ import json
 import pickle
 from datetime import datetime, timedelta
 
-OUTPUT_DIR = Path("E:/息壤杯")
+OUTPUT_DIR = Path(__file__).parent / "data"
 OUTPUT_DIR.mkdir(exist_ok=True)
 MODEL_DIR = Path(__file__).parent / "models"
 

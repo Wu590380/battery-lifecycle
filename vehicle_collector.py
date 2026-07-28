@@ -18,7 +18,7 @@ VEHICLE_ID = "VIN-LS6A3E0EXA000001"
 BATTERY_ID = "CATL-QJ-100-001"
 UPLOAD_INTERVAL = 5  # 上传间隔（秒）
 
-DATA_DIR = Path("E:/息壤杯")
+DATA_DIR = Path(__file__).parent / "data"
 DATA_DIR.mkdir(exist_ok=True)
 
 

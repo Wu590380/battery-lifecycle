@@ -11,7 +11,7 @@ from dataclasses import dataclass, field, asdict
 from typing import Optional, List
 import uuid
 
-OUTPUT_DIR = Path("E:/息壤杯")
+OUTPUT_DIR = Path(__file__).parent / "data"
 OUTPUT_DIR.mkdir(exist_ok=True)
 
 

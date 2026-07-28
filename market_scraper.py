@@ -11,7 +11,7 @@ from datetime import datetime
 import time
 import urllib.request
 
-OUTPUT_DIR = Path("E:/息壤杯")
+OUTPUT_DIR = Path(__file__).parent / "data"
 PRICE_CACHE = OUTPUT_DIR / "market_prices.json"
 
 # ═══════════════════════════════════════════

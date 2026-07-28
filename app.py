@@ -15,7 +15,7 @@ create_passport=_pp.create_passport; add_event=_pp.add_event
 verify_passport=_pp.verify_passport; export_passport_json=_pp.export_passport_json
 import_passport_json=_pp.import_passport_json
 
-OUTPUT_DIR=Path("E:/息壤杯"); MODEL_DIR=_ROOT/"models"
+OUTPUT_DIR=_ROOT/"data"; MODEL_DIR=_ROOT/"models"
 import sys; sys.path.insert(0, str(_ROOT))
 
 st.set_page_config(page_title="BMS · 动力电池管理系统",page_icon="◈",layout="wide",initial_sidebar_state="expanded")
