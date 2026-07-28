@@ -101,18 +101,18 @@ with col_left:
         format_func=lambda x: f"{BATTERY_CATALOG[x].name} ({BATTERY_CATALOG[x].pack_capacity_kwh}kWh · {BATTERY_CATALOG[x].vehicle_model})")
     sp = BATTERY_CATALOG[bt]
 
-    brand_key = f"{sp.name} ({sp.vehicle_model} {sp.pack_capacity_kwh}kWh)"
+    brand_key = f"{sp_name} ({sp_vehicle} {sp_cap}kWh)"
     if "last_brand" not in st.session_state: st.session_state.last_brand = ""
     if st.session_state.last_brand != brand_key:
         st.session_state.last_brand = brand_key
-        adj = get_brand_price_for_streamlit(sp.name, sp.vehicle_model)
+        adj = get_brand_price_for_streamlit(sp_name, sp_vehicle)
         if adj:
             for k in ["mkt_lfp","mkt_ncm","mkt_nca"]:
-                st.session_state[k] = int(adj["new"] * 10000 / sp.pack_capacity_kwh)
+                st.session_state[k] = int(adj["new"] * 10000 / sp_cap)
             for k in ["mkt_recycle_lfp","mkt_recycle_ncm","mkt_recycle_nca"]:
-                st.session_state[k] = int(adj["scrap"] * 10000 / sp.pack_capacity_kwh)
+                st.session_state[k] = int(adj["scrap"] * 10000 / sp_cap)
 
-    st.markdown(f'<p class="muted">{sp.manufacturer} · {sp.chemistry} · {sp.pack_capacity_kwh}kWh · {sp.vehicle_model}</p>', unsafe_allow_html=True)
+    st.markdown(f'<p class="muted">{sp_mfr} · {sp_chem} · {sp_cap}kWh · {sp_vehicle}</p>', unsafe_allow_html=True)
     if st.session_state.get("mkt_source"): st.caption(st.session_state.mkt_source)
 
     st.markdown('<div class="card">', unsafe_allow_html=True)
@@ -169,10 +169,24 @@ with col_right:
         with st.spinner("正在评估..."):
             _time.sleep(0.4)
             rep = estimate_residual_value(
-                battery_spec={"name": sp.name, "chemistry": sp.chemistry, "pack_capacity_kwh": sp.pack_capacity_kwh,
-                              "cycle_life": sp.cycle_life_to_80pct, "manufacturer": sp.manufacturer, "vehicle_model": sp.vehicle_model},
+                battery_spec={"name": sp_name, "chemistry": sp_chem, "pack_capacity_kwh": sp_cap,
+                              "cycle_life": sp.cycle_life_to_80pct, "manufacturer": sp_mfr, "vehicle_model": sp_vehicle},
                 current_soh=soh_val, current_cycle=cyc, estimated_rul=int(sp.cycle_life_to_80pct * soh_val),
                 usage_severity=sev, calendar_age_months=age, condition_factor=cond_deduction)
+        # Store in session so it persists across reruns
+        st.session_state.last_eval = {
+            "rep": rep, "soh_val": soh_val, "cyc": cyc, "age": age, "cond": cond_deduction,
+            "brand": sp_name, "vehicle": sp_vehicle, "chem": sp_chem,
+            "capacity": sp_cap, "mfr": sp_mfr
+        }
+        st.session_state.show_result = True
+        st.rerun()
+
+    if st.session_state.get("show_result"):
+        eval = st.session_state.last_eval
+        rep = eval["rep"]; soh_val = eval["soh_val"]; sp_name = eval["brand"]
+        sp_vehicle = eval["vehicle"]; sp_chem = eval["chem"]; sp_cap = eval["capacity"]
+        sp_mfr = eval["mfr"]; cyc = eval["cyc"]; age = eval["age"]; cond_deduction = eval["cond"]
 
         remain = rep.value_retention_pct
         st.markdown('<div class="fade-in">', unsafe_allow_html=True)
@@ -195,18 +209,18 @@ with col_right:
         # Pricing formula breakdown
         st.markdown("<div style='height:1px;background:#2a3040;margin:16px 0;'></div>", unsafe_allow_html=True)
         st.markdown(f'<h3><span style="color:#22d3ee;"></span> 定价计算明细</h3>', unsafe_allow_html=True)
-        pack_kwh = sp.pack_capacity_kwh
-        price_per_kwh = st.session_state.mkt_lfp if sp.chemistry=="LFP" else (st.session_state.mkt_ncm if sp.chemistry=="NCM" else st.session_state.mkt_nca)
+        pack_kwh = sp_cap
+        price_per_kwh = st.session_state.mkt_lfp if sp_chem=="LFP" else (st.session_state.mkt_ncm if sp_chem=="NCM" else st.session_state.mkt_nca)
         base_val = pack_kwh * price_per_kwh
         soh_impact = base_val * (soh_val - 1)
-        brand_factor = {"比亚迪/弗迪":0.98,"宁德时代":1.00,"松下":0.95,"中创新航":0.92,"国轩高科":0.88,"蜂巢能源":0.85,"LG新能源":0.90,"三星SDI":0.93,"SK On":0.88,"亿纬锂能":0.90,"孚能科技":0.85,"欣旺达":0.82}.get(sp.manufacturer, 0.90)
+        brand_factor = {"比亚迪/弗迪":0.98,"宁德时代":1.00,"松下":0.95,"中创新航":0.92,"国轩高科":0.88,"蜂巢能源":0.85,"LG新能源":0.90,"三星SDI":0.93,"SK On":0.88,"亿纬锂能":0.90,"孚能科技":0.85,"欣旺达":0.82}.get(sp_mfr, 0.90)
         brand_impact = base_val * soh_val * (brand_factor - 1)
         cond_impact = base_val * soh_val * brand_factor * (cond_deduction - 1)
 
         items = [
             ("基础价", f"{pack_kwh}kWh × {price_per_kwh}元/kWh", f"{base_val:,.0f}"),
             ("SOH衰减", f"SOH {soh_val*100:.0f}% → 折价 {(1-soh_val)*100:.0f}%", f"{soh_impact:,.0f}"),
-            ("品牌折价", f"{sp.manufacturer} 系数{brand_factor} → 调整{(brand_factor-1)*100:+.1f}%", f"{brand_impact:,.0f}"),
+            ("品牌折价", f"{sp_mfr} 系数{brand_factor} → 调整{(brand_factor-1)*100:+.1f}%", f"{brand_impact:,.0f}"),
             ("硬件扣减", f"检测系数{cond_deduction:.0%} → 折价{(1-cond_deduction)*100:.0f}%", f"{cond_impact:,.0f}"),
         ]
         for label, detail, amt in items:
@@ -280,7 +294,7 @@ with col_right:
         st.markdown(f'<h3><span style="color:#a78bfa;"></span> Page Agent 智能评估</h3>', unsafe_allow_html=True)
 
         # Agent reasoning trace
-        agent_input = f"SOH:{soh_val*100:.0f}% | 循环:{cyc}次 | 化学:{sp.chemistry} | 品牌:{sp.manufacturer} | 硬件系数:{cond_deduction:.0%}"
+        agent_input = f"SOH:{soh_val*100:.0f}% | 循环:{cyc}次 | 化学:{sp_chem} | 品牌:{sp_mfr} | 硬件系数:{cond_deduction:.0%}"
         if st.session_state.get("mkt_source"):
             agent_input += f"\n行情：{st.session_state.mkt_source}"
         st.code(f"Agent 分析输入：{agent_input}", language=None, wrap_lines=True)
@@ -290,7 +304,7 @@ with col_right:
         st.caption("Agent 综合 SOH、品牌折价、硬件检测、市场行情 → 生成交易建议：")
         
         # Detailed recommendation (same logic, now under Page Agent brand)
-        chem = sp.chemistry
+        chem = sp_chem
         if remain >= 75:
             st.success(f"""
 **等级：A级 · 残值率 {remain:.0f}%**
@@ -331,7 +345,7 @@ with col_right:
             pdf.set_font('Helvetica','B',14)
             pdf.cell(0,10,'Battery Trade Assessment',align='C',new_x='LMARGIN',new_y='NEXT')
             pdf.ln(5); pdf.set_font('Helvetica','',10)
-            for k,v in [('Model',sp.name),('SOH',f"{soh_val*100:.0f}%"),('Residual',f"{rep.residual_value_rmb:,.0f} RMB")]:
+            for k,v in [('Model',sp_name),('SOH',f"{soh_val*100:.0f}%"),('Residual',f"{rep.residual_value_rmb:,.0f} RMB")]:
                 pdf.cell(40,7,k+':'); pdf.cell(0,7,str(v),new_x='LMARGIN',new_y='NEXT')
             out = Path(__file__).parent / "data" / f"report_{datetime.now().strftime('%Y%m%d%H%M')}.pdf"
             pdf.output(str(out)); st.success(f"PDF: {out}")
@@ -339,7 +353,7 @@ with col_right:
         # History
         st.session_state.trade_history.insert(0, {
             "id":f"TRADE-{datetime.now().strftime('%Y%m%d%H%M')}-{uuid.uuid4().hex[:4].upper()}",
-            "time":datetime.now().isoformat(),"model":sp.name,"vehicle":sp.vehicle_model,
+            "time":datetime.now().isoformat(),"model":sp_name,"vehicle":sp_vehicle,
             "soh":soh_val*100,"residual":rep.residual_value_rmb,"retention":remain,
             "recommendation":"4S置换" if remain>=70 else ("梯次利用" if remain>=40 else "材料回收")
         })
