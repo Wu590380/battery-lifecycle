@@ -342,40 +342,35 @@ with col_right:
         if st.button("导出评估报告 PDF", key="pdf"):
             from fpdf import FPDF
             pdf=FPDF(); pdf.add_page()
-            # Try multiple font paths for cross-platform compatibility
             font_dirs = [
                 "/usr/share/fonts/truetype/dejavu/",
                 "/usr/share/fonts/truetype/liberation/",
-                "/usr/share/fonts/",
             ]
-            font_loaded = False
+            uni = False
             for d in font_dirs:
                 try:
                     pdf.add_font("Uni", "", d + "DejaVuSans.ttf", uni=True)
                     pdf.add_font("Uni", "B", d + "DejaVuSans-Bold.ttf", uni=True)
-                    font_loaded = True; break
+                    uni = True; break
                 except: pass
-            if not font_loaded:
-                # Fallback: ASCII only with Helvetica
-                pdf.set_font('Helvetica','B',14)
-                pdf.cell(0,10,'Battery Assessment Report',align='C',new_x='LMARGIN',new_y='NEXT')
-                pdf.set_font('Helvetica','',10)
+            if uni:
+                pdf.set_font('Uni','B',14); pdf.cell(0,10,str(sp_name),align='C',new_x='LMARGIN',new_y='NEXT')
+                pdf.set_font('Uni','',10)
             else:
-                pdf.set_font('Uni','B',14)
-            pdf.cell(0,10,sp_name,align='C',new_x='LMARGIN',new_y='NEXT')
-            if font_loaded: pdf.set_font('Uni','',10)
-            pdf.cell(0,8,f"SOH: {soh_val*100:.0f}%  残值: {rep.residual_value_rmb:,.0f} RMB",align='C',new_x='LMARGIN',new_y='NEXT')
-            pdf.ln(3)
-            pdf.cell(0,8,f"全新价值: {rep.new_value_rmb:,.0f} RMB  残值率: {rep.value_retention_pct:.0f}%",align='C',new_x='LMARGIN',new_y='NEXT')
-            pdf.cell(0,8,f"梯次利用: {rep.second_life_value_rmb:,.0f} RMB  材料回收: {rep.recycle_value_rmb:,.0f} RMB",align='C',new_x='LMARGIN',new_y='NEXT')
-            pdf.cell(0,8,f"估值区间: {rep.confidence_low:,.0f} ~ {rep.confidence_high:,.0f} RMB",align='C',new_x='LMARGIN',new_y='NEXT')
-            pdf.ln(3)
-            pdf.set_font('DejaVu','',8)
-            pdf.cell(0,6,f"生成时间: {datetime.now().strftime('%Y-%m-%d %H:%M')}  来源: battery-trade.streamlit.app",align='C',new_x='LMARGIN',new_y='NEXT')
+                pdf.set_font('Helvetica','B',14); pdf.cell(0,10,'Battery Assessment Report',align='C',new_x='LMARGIN',new_y='NEXT')
+                pdf.set_font('Helvetica','',10)
+            pdf.cell(0,8,f"SOH: {soh_val*100:.0f}%  Residual: {rep.residual_value_rmb:,.0f} RMB",align='C',new_x='LMARGIN',new_y='NEXT')
+            pdf.ln(2)
+            pdf.cell(0,8,f"New Value: {rep.new_value_rmb:,.0f} RMB  Retention: {rep.value_retention_pct:.0f}%",align='C',new_x='LMARGIN',new_y='NEXT')
+            pdf.cell(0,8,f"Second-life: {rep.second_life_value_rmb:,.0f} RMB  Recycle: {rep.recycle_value_rmb:,.0f} RMB",align='C',new_x='LMARGIN',new_y='NEXT')
+            pdf.cell(0,8,f"Range: {rep.confidence_low:,.0f} ~ {rep.confidence_high:,.0f} RMB",align='C',new_x='LMARGIN',new_y='NEXT')
+            pdf.ln(4)
+            if uni: pdf.set_font('Uni','',7)
+            else: pdf.set_font('Helvetica','',7)
+            pdf.cell(0,6,f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M')}  battery-trade.streamlit.app",align='C',new_x='LMARGIN',new_y='NEXT')
             out = Path(__file__).parent / "data" / f"report_{datetime.now().strftime('%Y%m%d%H%M')}.pdf"
             out.parent.mkdir(exist_ok=True)
             pdf.output(str(out))
-            st.success(f"PDF 已生成")
             with open(out, "rb") as f:
                 st.download_button("📥 下载报告", f, file_name=out.name, mime="application/pdf")
 
