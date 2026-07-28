@@ -8,8 +8,9 @@ __pycache__/
 .vs/
 .idea/
 
-# Streamlit
-.streamlit/
+# Streamlit (only ignore cache, keep config)
+.streamlit/cache/
+.streamlit/examples/
 
 # Data files (too large)
 *.csv
