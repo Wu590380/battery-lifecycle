@@ -169,15 +169,15 @@ with col_right:
         with st.spinner("正在评估..."):
             _time.sleep(0.4)
             rep = estimate_residual_value(
-                battery_spec={"name": sp_name, "chemistry": sp_chem, "pack_capacity_kwh": sp_cap,
-                              "cycle_life": sp.cycle_life_to_80pct, "manufacturer": sp_mfr, "vehicle_model": sp_vehicle},
+                battery_spec={"name": sp.name, "chemistry": sp.chemistry, "pack_capacity_kwh": sp.pack_capacity_kwh,
+                              "cycle_life": sp.cycle_life_to_80pct, "manufacturer": sp.manufacturer, "vehicle_model": sp.vehicle_model},
                 current_soh=soh_val, current_cycle=cyc, estimated_rul=int(sp.cycle_life_to_80pct * soh_val),
                 usage_severity=sev, calendar_age_months=age, condition_factor=cond_deduction)
         # Store in session so it persists across reruns
         st.session_state.last_eval = {
             "rep": rep, "soh_val": soh_val, "cyc": cyc, "age": age, "cond": cond_deduction,
-            "brand": sp_name, "vehicle": sp_vehicle, "chem": sp_chem,
-            "capacity": sp_cap, "mfr": sp_mfr
+            "brand": sp.name, "vehicle": sp.vehicle_model, "chem": sp.chemistry,
+            "capacity": sp.pack_capacity_kwh, "mfr": sp.manufacturer
         }
         st.session_state.show_result = True
         st.rerun()
