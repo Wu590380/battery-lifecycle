@@ -35,7 +35,7 @@ BAT_LABELS = {
 def load_latest(bid):
     """读取指定车辆的最新数据"""
     DATA_DIR = Path(__file__).parent / "data"
-files = sorted(glob(str(DATA_DIR / "telemetry_*.jsonl")))
+    files = sorted(glob(str(DATA_DIR / "telemetry_*.jsonl")))
     latest = None
     for f in reversed(files):
         try:

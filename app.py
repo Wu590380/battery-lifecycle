@@ -250,7 +250,8 @@ with st.sidebar:
     """,unsafe_allow_html=True)
     st.markdown(f"<div style='height:1px;background:{BORDER};margin:.4rem 0;'></div>",unsafe_allow_html=True)
     st.markdown("##### 交易平台")
-    st.markdown(f"<a href='http://localhost:8504' target='_blank' style='color:#4ade80;text-decoration:none;font-size:14px;padding:8px 16px;display:block;border-left:3px solid #4ade80;'>↗ 电池交易评估</a>",unsafe_allow_html=True)
+    st.markdown(f"<a href='https://battery-trade.streamlit.app' target='_blank' style='color:#4ade80;text-decoration:none;font-size:14px;padding:8px 16px;display:block;border-left:3px solid #4ade80;'>↗ 电池交易评估（公网）</a>",unsafe_allow_html=True)
+    st.markdown(f"<a href='http://localhost:8504' target='_blank' style='color:#60a5fa;text-decoration:none;font-size:13px;padding:6px 16px;display:block;border-left:3px solid #60a5fa;'>↗ 电池交易评估（本地）</a>",unsafe_allow_html=True)
     st.markdown(f"<div style='height:1px;background:{BORDER};margin:.4rem 0;'></div>",unsafe_allow_html=True)
     st.markdown("##### 管理平台")
     page=st.radio("main_sys",["电池监测","数字护照","模型性能"],label_visibility="collapsed")
@@ -1013,8 +1014,57 @@ elif page=="数字护照":
                     json_str=json.dumps(p,ensure_ascii=False,indent=2)
                     st.download_button("导出JSON",json_str,f"passport_{p['id']}.json","application/json",width="stretch")
                 with ec2:
-                    st.button("导出PDF",width="stretch",disabled=True)
-                st.caption("PDF导出需安装 fpdf2 库：pip install fpdf2")
+                    if st.button("导出PDF",width="stretch"):
+                        try:
+                            from fpdf import FPDF
+                            pdf=FPDF(); pdf.add_page()
+                            uni=False
+                            for d in ["/usr/share/fonts/truetype/dejavu/","/usr/share/fonts/truetype/liberation/"]:
+                                try:
+                                    pdf.add_font("Uni","",d+"DejaVuSans.ttf",uni=True)
+                                    pdf.add_font("Uni","B",d+"DejaVuSans-Bold.ttf",uni=True)
+                                    uni=True; break
+                                except: pass
+                            if uni:
+                                pdf.set_font('Uni','B',16)
+                                pdf.cell(0,10,"Battery Digital Passport",align='C',new_x='LMARGIN',new_y='NEXT')
+                                pdf.set_font('Uni','',11)
+                            else:
+                                pdf.set_font('Helvetica','B',16)
+                                pdf.cell(0,10,"Battery Digital Passport",align='C',new_x='LMARGIN',new_y='NEXT')
+                                pdf.set_font('Helvetica','',11)
+                            pdf.ln(4)
+                            rows=[
+                                ("Passport ID", p['id']),
+                                ("Model", p['model']),
+                                ("Manufacturer", p['mfg']),
+                                ("Chemistry", p['chem']),
+                                ("Capacity", f"{p['cap']} kWh"),
+                                ("Vehicle", p['vehicle']),
+                                ("Mfg Date", p['mfg_date']),
+                                ("Initial SOH", f"{p['soh']*100:.0f}%"),
+                                ("Serial No.", p['sn']),
+                                ("SHA-256", p['hash']),
+                                ("Created", p['created']),
+                            ]
+                            for k,v in rows:
+                                if uni: pdf.set_font('Uni','B',10)
+                                else: pdf.set_font('Helvetica','B',10)
+                                pdf.cell(35,8,k+":")
+                                if uni: pdf.set_font('Uni','',10)
+                                else: pdf.set_font('Helvetica','',10)
+                                pdf.cell(0,8,str(v),new_x='LMARGIN',new_y='NEXT')
+                            pdf.ln(3)
+                            if uni: pdf.set_font('Uni','',7)
+                            else: pdf.set_font('Helvetica','',7)
+                            pdf.cell(0,6,"Hash-chain verified. Any tampering will be detected.",new_x='LMARGIN',new_y='NEXT')
+                            import io
+                            buf=io.BytesIO()
+                            pdf.output(buf)
+                            st.download_button("下载PDF文件",buf.getvalue(),f"passport_{p['id']}.pdf","application/pdf")
+                        except Exception as e:
+                            st.error(f"PDF生成失败: {e}")
+                st.caption("PDF导出基于 fpdf2（已包含在 requirements.txt）")
             else:
                 st.markdown(f"""<div class="panel" style="text-align:center;padding:40px;">
                 <div style="font-size:2rem;color:{TEXT3};">📄</div>

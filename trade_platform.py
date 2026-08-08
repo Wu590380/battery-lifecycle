@@ -179,6 +179,14 @@ with col_right:
             "brand": sp.name, "vehicle": sp.vehicle_model, "chem": sp.chemistry,
             "capacity": sp.pack_capacity_kwh, "mfr": sp.manufacturer
         }
+        # Record history ONLY once here (button click), not on every rerun
+        remain_new = rep.value_retention_pct
+        st.session_state.trade_history.insert(0, {
+            "id": f"TRADE-{datetime.now().strftime('%Y%m%d%H%M')}-{uuid.uuid4().hex[:4].upper()}",
+            "time": datetime.now().isoformat(), "model": sp.name, "vehicle": sp.vehicle_model,
+            "soh": soh_val * 100, "residual": rep.residual_value_rmb, "retention": remain_new,
+            "recommendation": "4S置换" if remain_new >= 70 else ("梯次利用" if remain_new >= 40 else "材料回收")
+        })
         st.session_state.show_result = True
         st.rerun()
 
@@ -342,15 +350,17 @@ with col_right:
         if st.button("导出评估报告 PDF", key="pdf"):
             from fpdf import FPDF
             pdf=FPDF(); pdf.add_page()
-            font_dirs = [
-                "/usr/share/fonts/truetype/dejavu/",
-                "/usr/share/fonts/truetype/liberation/",
+            font_tries = [
+                ("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"),
+                ("C:/Windows/Fonts/simhei.ttf", "C:/Windows/Fonts/simhei.ttf"),
+                ("C:/Windows/Fonts/msyh.ttc", "C:/Windows/Fonts/msyhbd.ttc"),
+                ("C:/Windows/Fonts/simsun.ttc", "C:/Windows/Fonts/simsun.ttc"),
             ]
             uni = False
-            for d in font_dirs:
+            for reg, bold in font_tries:
                 try:
-                    pdf.add_font("Uni", "", d + "DejaVuSans.ttf", uni=True)
-                    pdf.add_font("Uni", "B", d + "DejaVuSans-Bold.ttf", uni=True)
+                    pdf.add_font("Uni", "", reg, uni=True)
+                    pdf.add_font("Uni", "B", bold, uni=True)
                     uni = True; break
                 except: pass
             if uni:
@@ -374,13 +384,6 @@ with col_right:
             with open(out, "rb") as f:
                 st.download_button("📥 下载报告", f, file_name=out.name, mime="application/pdf")
 
-        # History
-        st.session_state.trade_history.insert(0, {
-            "id":f"TRADE-{datetime.now().strftime('%Y%m%d%H%M')}-{uuid.uuid4().hex[:4].upper()}",
-            "time":datetime.now().isoformat(),"model":sp_name,"vehicle":sp_vehicle,
-            "soh":soh_val*100,"residual":rep.residual_value_rmb,"retention":remain,
-            "recommendation":"4S置换" if remain>=70 else ("梯次利用" if remain>=40 else "材料回收")
-        })
         st.markdown('</div>',unsafe_allow_html=True)
     else:
         st.markdown(f"""
