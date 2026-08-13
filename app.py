@@ -1064,7 +1064,6 @@ elif page=="数字护照":
                             st.download_button("下载PDF文件",buf.getvalue(),f"passport_{p['id']}.pdf","application/pdf")
                         except Exception as e:
                             st.error(f"PDF生成失败: {e}")
-                st.caption("PDF导出基于 fpdf2（已包含在 requirements.txt）")
             else:
                 st.markdown(f"""<div class="panel" style="text-align:center;padding:40px;">
                 <div style="font-size:2rem;color:{TEXT3};">📄</div>
