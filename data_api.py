@@ -17,6 +17,34 @@ DATA_DIR = Path(__file__).parent / "data"
 DATA_DIR.mkdir(exist_ok=True)
 
 
+def validate_telemetry(data):
+    """
+    数据完整性校验（应对传输丢包/损坏/异常值）
+    返回: (是否合法, 清洗后的数据)
+    """
+    # 必需字段检查
+    required = ["battery_id", "soc_pct", "soh_pct", "pack_voltage_v", "pack_temp_c"]
+    if not all(k in data for k in required):
+        return False, "缺少必需字段: " + ",".join(set(required) - set(data.keys()))
+
+    # 数值范围检查（物理合理性）
+    if not (0 <= float(data.get("soc_pct", -1)) <= 100):
+        return False, f"soc_pct 越界: {data.get('soc_pct')}"
+    if not (0 <= float(data.get("soh_pct", -1)) <= 100):
+        return False, f"soh_pct 越界: {data.get('soh_pct')}"
+    if not (100 <= float(data.get("pack_voltage_v", 0)) <= 1500):
+        return False, f"pack_voltage_v 越界: {data.get('pack_voltage_v')}"
+    if not (-40 <= float(data.get("pack_temp_c", 99)) <= 100):
+        return False, f"pack_temp_c 越界: {data.get('pack_temp_c')}"
+
+    # 清洗：NaN/None → 默认值
+    data["soc_pct"] = round(float(data["soc_pct"]), 2)
+    data["soh_pct"] = round(float(data["soh_pct"]), 3)
+    data["pack_voltage_v"] = round(float(data["pack_voltage_v"]), 1)
+    data["pack_temp_c"] = round(float(data["pack_temp_c"]), 1)
+    return True, data
+
+
 class TelemetryHandler(BaseHTTPRequestHandler):
     """接收 POST /api/telemetry 数据"""
 
@@ -26,6 +54,15 @@ class TelemetryHandler(BaseHTTPRequestHandler):
             body = self.rfile.read(content_length)
             try:
                 data = json.loads(body.decode("utf-8"))
+                # ── 数据校验（新增） ──
+                ok, result = validate_telemetry(data)
+                if not ok:
+                    self.send_response(400)
+                    self.end_headers()
+                    self.wfile.write(json.dumps({"status": "invalid", "error": result}).encode())
+                    print(f"  [API] ✗ 数据被拒: {result}")
+                    return
+                data = result
                 data["timestamp"] = datetime.now().isoformat()
                 data["source"] = "ESP32_CAN"
 

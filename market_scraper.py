@@ -200,6 +200,64 @@ def fetch_from_api():
 
 
 # ═══════════════════════════════════════════
+# 手动导入 CSV 行情兜底（网络全失败时使用）
+# 文件位置：data/market_prices.csv
+# CSV 格式（UTF-8，一行一条，逗号分隔）：
+#   材料,价格,单位
+#   碳酸锂,78000,元/吨
+#   电解钴,185000,元/吨
+#   镍,128000,元/吨
+# ═══════════════════════════════════════════
+MANUAL_CSV = OUTPUT_DIR / "market_prices.csv"
+
+
+def import_manual_csv(csv_path=None, save_cache=True):
+    """
+    从手动导入的 CSV 读取行情（网络不可用时的兜底方案）
+    返回: {"lithium": x, "cobalt": x, "nickel": x, "source": "手动导入CSV"} 或 None
+    """
+    p = Path(csv_path) if csv_path else MANUAL_CSV
+    if not p.exists():
+        return None
+    try:
+        import csv as _csv
+        prices = {}
+        with open(p, "r", encoding="utf-8-sig") as f:
+            for row in _csv.reader(f):
+                if not row or len(row) < 2:
+                    continue
+                item = str(row[0]).strip()
+                try:
+                    val = float(str(row[1]).replace(",", "").strip())
+                except ValueError:
+                    continue
+                if "锂" in item and val > 10000:
+                    prices["lithium"] = val
+                elif "钴" in item and val > 10000:
+                    prices["cobalt"] = val
+                elif "镍" in item and val > 10000:
+                    prices["nickel"] = val
+        if "lithium" not in prices:
+            return None
+        prices.setdefault("cobalt", 185000)
+        prices.setdefault("nickel", 128000)
+        prices["source"] = f"手动导入CSV: {p.name}"
+        print(f"  [CSV] 手动行情导入成功: 锂{prices['lithium']:.0f}元/吨")
+        if save_cache:
+            data = calculate_derived_prices(prices["lithium"])
+            data["timestamp"] = datetime.now().isoformat()
+            data["sources_tried"] = [f"手动导入CSV({p.name})"]
+            data["is_live"] = True
+            data["credits"] = get_credit_stats()
+            with open(PRICE_CACHE, "w", encoding="utf-8") as f:
+                json.dump(data, f, ensure_ascii=False, indent=2)
+        return prices
+    except Exception as e:
+        print(f"  [CSV] 手动行情导入失败: {e}")
+        return None
+
+
+# ═══════════════════════════════════════════
 # 各品牌电池包基准价 (2025年7月调研，锂价78000元/吨时, 万元/整包)
 # chemistry: 材料体系 | brand_factor: 品牌流通折价系数 (宁德=1.0基准)
 # lithium_sensitivity: 对锂价波动敏感度 (LFP低, NCM/NCA高)
@@ -439,6 +497,16 @@ def get_market_prices(force_refresh=False):
         else:
             sources_tried.append("Firecrawl WARN️ (本月额度已用完)")
             print("  [WARN] Firecrawl 本月 500 credits 已用完，等待下月重置")
+
+    # Source 4: 手动导入 CSV 兜底（网络全部失败时）
+    if lithium is None:
+        print("  [FETCH] 尝试 手动导入CSV (data/market_prices.csv)...")
+        csv_data = import_manual_csv()
+        if csv_data:
+            lithium = csv_data["lithium"]
+            sources_tried.append(csv_data["source"])
+        else:
+            sources_tried.append("手动CSV 不存在")
 
     # Fallback: 基准价
     if lithium is None:

@@ -115,18 +115,32 @@ void loop() {
   String jsonStr;
   serializeJson(doc, jsonStr);
 
-  HTTPClient http;
-  http.begin(UPLOAD_URL);
-  http.addHeader("Content-Type", "application/json");
-  int httpCode = http.POST(jsonStr);
+  // ── 发送 + 失败重传（最多3次，应对WiFi丢包） ──
+  const int MAX_RETRY = 3;
+  bool sent = false;
+  for (int attempt = 0; attempt < MAX_RETRY; attempt++) {
+    HTTPClient http;
+    http.begin(UPLOAD_URL);
+    http.addHeader("Content-Type", "application/json");
+    int httpCode = http.POST(jsonStr);
+    http.end();
 
-  if (httpCode > 0) {
+    if (httpCode > 0) {
+      sent = true;
+      if (attempt > 0) {
+        Serial.printf("RETRY OK [%s] attempt=%d\n", b->id, attempt + 1);
+      }
+      break;
+    }
+    delay(300);  // 重传间隔
+  }
+
+  if (sent) {
     Serial.printf("[%d/%d] %s %s SOC:%.1f%% SOH:%.1f%% T:%.1fC\n",
       currentBattery+1, FLEET_SIZE, b->id, b->vehicle, soc, b->base_soh*100, temp);
   } else {
-    Serial.printf("ERR [%s]: %s\n", b->id, http.errorToString(httpCode));
+    Serial.printf("FAIL [%s] after %d attempts, data dropped\n", b->id, MAX_RETRY);
   }
-  http.end();
 
   // 切换到下一辆车
   currentBattery = (currentBattery + 1) % FLEET_SIZE;
