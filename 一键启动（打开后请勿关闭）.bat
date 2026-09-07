@@ -1,7 +1,7 @@
 @echo off
 chcp 936 >nul
 title AI Battery Lifecycle - Launcher
-cd /d "%~dp0program"
+cd /d "%~dp0"
 
 python --version >nul 2>&1
 if errorlevel 1 (

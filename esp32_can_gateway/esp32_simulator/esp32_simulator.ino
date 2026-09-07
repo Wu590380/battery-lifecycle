@@ -10,18 +10,22 @@
 #include <WiFiMulti.h>
 #include <HTTPClient.h>
 #include <ArduinoJson.h>
+#include <WiFiUdp.h>
 
 WiFiMulti wifiMulti;
 
 // ═══════════════════════════════════════
 // 网络配置
 // ═══════════════════════════════════════
-const char* WIFI1_SSID = "HUAWEI-401";
-const char* WIFI1_PASS = "18702355972";
-const char* WIFI2_SSID = "OPPO Reno13 t8gb";
-const char* WIFI2_PASS = "12345678";
+const char* WIFI1_SSID = "OPPO Reno13 t8gb";
+const char* WIFI1_PASS = "12345678";
+const char* WIFI2_SSID = "HUAWEI-401";
+const char* WIFI2_PASS = "18702355972";
 
-const char* UPLOAD_URL = "http://192.168.3.9:8501/api/telemetry";
+const char* UPLOAD_URL = "http://10.143.100.92:8501/api/telemetry";  // 初始兜底，收到广播后自动更新
+WiFiUDP udp;
+const int DISCOVER_PORT = 8505;
+char urlBuf[96] = "http://10.143.100.92:8501/api/telemetry";
 
 // ═══════════════════════════════════════
 // 车队电池数据库 — 12个真实车型
@@ -76,9 +80,33 @@ void setup() {
   Serial.print("IP:   "); Serial.println(WiFi.localIP());
   Serial.print("信号: "); Serial.print(WiFi.RSSI()); Serial.println(" dBm");
   Serial.println("\n开始轮询发送...\n");
+
+  udp.begin(DISCOVER_PORT);
+  Serial.printf("[Discover] 监听UDP端口 %d，等待电脑广播...\n", DISCOVER_PORT);
+}
+
+// 监听 UDP 广播，自动发现电脑 IP（免改固件）
+void checkDiscovery() {
+  int packetSize = udp.parsePacket();
+  if (packetSize) {
+    char buf[64];
+    int len = udp.read(buf, sizeof(buf));
+    if (len > 4) {
+      buf[len] = 0;
+      if (strncmp(buf, "BMS|", 4) == 0) {
+        char ip[32];
+        strncpy(ip, buf + 4, sizeof(ip) - 1);
+        ip[sizeof(ip) - 1] = 0;
+        sprintf(urlBuf, "http://%s:8501/api/telemetry", ip);
+        Serial.printf("[Discover] 已更新上传地址 -> %s\n", urlBuf);
+      }
+    }
+  }
 }
 
 void loop() {
+  checkDiscovery();
+
   if (wifiMulti.run() != WL_CONNECTED) { delay(1000); return; }
   if (millis() - lastUpload < 3000) return;  // 每3秒发送一辆车
   lastUpload = millis();
@@ -120,7 +148,7 @@ void loop() {
   bool sent = false;
   for (int attempt = 0; attempt < MAX_RETRY; attempt++) {
     HTTPClient http;
-    http.begin(UPLOAD_URL);
+    http.begin(urlBuf);
     http.addHeader("Content-Type", "application/json");
     int httpCode = http.POST(jsonStr);
     http.end();

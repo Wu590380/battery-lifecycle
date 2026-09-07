@@ -8,6 +8,8 @@ ESP32 CAN 网关接收端 — 轻量 HTTP API 服务器
 部署到 Streamlit Cloud 时，此文件作为独立 API 服务运行
 """
 import json
+import socket
+import time
 import threading
 from pathlib import Path
 from datetime import datetime
@@ -94,9 +96,41 @@ class TelemetryHandler(BaseHTTPRequestHandler):
         pass  # 抑制默认日志
 
 
+
+
+DISCOVER_PORT = 8505  # UDP 服务发现端口
+
+
+def _get_local_ip():
+    """获取本机在局域网内的 IP（不依赖系统的对外出口）"""
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(("8.8.8.8", 80))
+        ip = s.getsockname()[0]
+        s.close()
+        return ip
+    except Exception:
+        return "127.0.0.1"
+
+
+def udp_broadcast(interval=2):
+    """每 2 秒向局域网广播本机 IP，供 ESP32 自动发现（无需在固件里写死IP）"""
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    s.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+    ip = _get_local_ip()
+    msg = f"BMS|{ip}".encode()
+    print(f"[Discover] 广播中: 端口{DISCOVER_PORT} 消息=BMS|{ip}")
+    while True:
+        try:
+            s.sendto(msg, ("255.255.255.255", DISCOVER_PORT))
+        except Exception:
+            pass
+        time.sleep(interval)
+
 def run_api_server(port=8501):
     """启动 HTTP API 服务器"""
     server = HTTPServer(("0.0.0.0", port), TelemetryHandler)
+    threading.Thread(target=udp_broadcast, daemon=True).start()
     print(f"[API Server] 启动在 http://0.0.0.0:{port}")
     print(f"[API Server] 接收地址: POST http://<IP>:{port}/api/telemetry")
     print(f"[API Server] 数据存储: {DATA_DIR}/telemetry_YYYYMMDD.jsonl")
