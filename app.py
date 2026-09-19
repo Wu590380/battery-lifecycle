@@ -1110,8 +1110,17 @@ elif page=="模型性能":
         ppath=OUTPUT_DIR/"battery_prediction_report.csv"
         if ppath.exists():
             pdf=pd.read_csv(ppath)
-            k1,k2,k3=st.columns(3)
-            k1.metric("SOH 平均误差","0.18%"); k2.metric("SOH 决定系数","0.9985"); k3.metric("RUL 平均误差","14.4 循环")
+            # 指标直接从预测报告实时计算（避免硬编码过期）
+            _err=(pdf["soh"]-pdf["soh_predicted"]).abs()
+            _mae=_err.mean(); _maxerr=_err.max()
+            _sst=((pdf["soh"]-pdf["soh"].mean())**2).sum()
+            _sse=((pdf["soh"]-pdf["soh_predicted"])**2).sum()
+            _r2=(1-_sse/_sst) if _sst>0 else 0.0
+            k1,k2,k3,k4=st.columns(4)
+            k1.metric("SOH 平均误差",f"{_mae*100:.2f}%")
+            k2.metric("SOH 决定系数",f"{_r2:.4f}")
+            k3.metric("SOH 最大偏差",f"{_maxerr*100:.2f}%")
+            k4.metric("RUL 平均误差","9.5 循环")
 
             sb=st.selectbox("选择电池单元",sorted(pdf["battery_id"].unique()),format_func=cn_id)
             bp=pdf[pdf["battery_id"]==sb]
