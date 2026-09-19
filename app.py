@@ -1018,11 +1018,19 @@ elif page=="数字护照":
                         try:
                             from fpdf import FPDF
                             pdf=FPDF(); pdf.add_page()
+                            # 字体探测（中英文兼容）
                             uni=False
-                            for d in ["/usr/share/fonts/truetype/dejavu/","/usr/share/fonts/truetype/liberation/"]:
+                            # 字体探测：Linux DejaVu → Windows 黑体/雅黑
+                            font_tries = [
+                                ("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"),
+                                ("C:/Windows/Fonts/simhei.ttf", "C:/Windows/Fonts/simhei.ttf"),
+                                ("C:/Windows/Fonts/msyh.ttc", "C:/Windows/Fonts/msyhbd.ttc"),
+                                ("C:/Windows/Fonts/simsun.ttc", "C:/Windows/Fonts/simsun.ttc"),
+                            ]
+                            for reg, bold in font_tries:
                                 try:
-                                    pdf.add_font("Uni","",d+"DejaVuSans.ttf",uni=True)
-                                    pdf.add_font("Uni","B",d+"DejaVuSans-Bold.ttf",uni=True)
+                                    pdf.add_font("Uni","",reg,uni=True)
+                                    pdf.add_font("Uni","B",bold,uni=True)
                                     uni=True; break
                                 except: pass
                             if uni:
