@@ -8,6 +8,7 @@ ESP32 CAN 网关接收端 — 轻量 HTTP API 服务器
 部署到 Streamlit Cloud 时，此文件作为独立 API 服务运行
 """
 import json
+import os
 import sys
 import socket
 import time
@@ -121,23 +122,41 @@ def _get_local_ip():
         return "127.0.0.1"
 
 
+def _is_private(ip):
+    """是否为 RFC1918 内网地址（Windows 上 Docker/WSL/VPN 常占用非私有段或 172.17，
+       把 VPN 地址广播出去会让 ESP32 在可达/不可达地址之间反复横跳）"""
+    try:
+        a, b = (int(x) for x in ip.split(".")[:2])
+    except Exception:
+        return False
+    if a == 10:
+        return True
+    if a == 192 and b == 168:
+        return True
+    if a == 172 and 16 <= b <= 31:
+        return b != 17          # 172.17.x 是 Docker Desktop 默认 bridge
+    return False
+
+
 def _local_ips():
-    """枚举本机所有 IPv4，剔除回环/链路本地/Docker 虚拟网卡"""
+    """枚举本机可用的内网 IPv4（剔除回环/链路本地/Docker/VPN/公网）"""
+    override = os.environ.get("BMS_ADVERTISE_IP", "").strip()
+    if override:
+        return [override]
+
     ips = set()
     try:
         for info in socket.getaddrinfo(socket.gethostname(), None, socket.AF_INET):
             ips.add(info[4][0])
     except Exception:
         pass
-    ips.add(_get_local_ip())          # 默认出口 IP 兜底
-    out = []
-    for ip in ips:
-        if ip.startswith("127.") or ip.startswith("169.254."):
-            continue
-        if ip.startswith("172.17."):   # Docker Desktop 默认 bridge 宿主地址
-            continue
-        out.append(ip)
-    return sorted(out)
+    fallback = _get_local_ip()
+    cand = [ip for ip in ips if _is_private(ip)]
+    if not cand and _is_private(fallback):
+        cand = [fallback]
+    if not cand:                       # 极端情况：没有私有地址则回退到默认出口
+        cand = [fallback]
+    return sorted(cand)
 
 
 def _broadcast_targets():
