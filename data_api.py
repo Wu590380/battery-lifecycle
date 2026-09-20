@@ -8,12 +8,20 @@ ESP32 CAN 网关接收端 — 轻量 HTTP API 服务器
 部署到 Streamlit Cloud 时，此文件作为独立 API 服务运行
 """
 import json
+import sys
 import socket
 import time
 import threading
 from pathlib import Path
 from datetime import datetime
 from http.server import HTTPServer, BaseHTTPRequestHandler
+
+# 控制台编码容错：GBK 控制台下遇到 ✓ 等字符不再抛异常（曾导致响应被污染）
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(errors="replace")
+    except Exception:
+        pass
 
 DATA_DIR = Path(__file__).parent / "data"
 DATA_DIR.mkdir(exist_ok=True)
@@ -62,7 +70,7 @@ class TelemetryHandler(BaseHTTPRequestHandler):
                     self.send_response(400)
                     self.end_headers()
                     self.wfile.write(json.dumps({"status": "invalid", "error": result}).encode())
-                    print(f"  [API] ✗ 数据被拒: {result}")
+                    print(f"  [API] REJ 数据被拒: {result}")
                     return
                 data = result
                 data["timestamp"] = datetime.now().isoformat()
@@ -78,7 +86,7 @@ class TelemetryHandler(BaseHTTPRequestHandler):
                 self.send_header("Content-Type", "application/json")
                 self.end_headers()
                 self.wfile.write(json.dumps({"status": "ok"}).encode())
-                print(f"  [API] ✓ 数据已接收 SOC:{data.get('soc_pct',0):.1f}%")
+                print(f"  [API] OK 数据已接收 SOC:{data.get('soc_pct',0):.1f}%")
             except Exception as e:
                 self.send_response(400)
                 self.end_headers()
@@ -113,19 +121,57 @@ def _get_local_ip():
         return "127.0.0.1"
 
 
+def _local_ips():
+    """枚举本机所有 IPv4，剔除回环/链路本地/Docker 虚拟网卡"""
+    ips = set()
+    try:
+        for info in socket.getaddrinfo(socket.gethostname(), None, socket.AF_INET):
+            ips.add(info[4][0])
+    except Exception:
+        pass
+    ips.add(_get_local_ip())          # 默认出口 IP 兜底
+    out = []
+    for ip in ips:
+        if ip.startswith("127.") or ip.startswith("169.254."):
+            continue
+        if ip.startswith("172.17."):   # Docker Desktop 默认 bridge 宿主地址
+            continue
+        out.append(ip)
+    return sorted(out)
+
+
+def _broadcast_targets():
+    """为每个本机 IP 计算定向广播地址（比 255.255.255.255 可靠：
+       后者的路由在装了 Docker/VPN 的机器上会指向虚拟网卡，ESP32 收不到）"""
+    targets = set()
+    for ip in _local_ips():
+        p = ip.split(".")
+        if len(p) == 4:
+            targets.add(".".join(p[:3] + ["255"]))      # /24
+            targets.add(p[0] + ".255.255.255")          # /8（如 26.x）
+    targets.add("255.255.255.255")                      # 有限广播，保留兼容
+    return sorted(targets)
+
+
 def udp_broadcast(interval=2):
-    """每 2 秒向局域网广播本机 IP，供 ESP32 自动发现（无需在固件里写死IP）"""
+    """每 2 秒播报本机 IP（BMS|<ip>），供 ESP32 自动发现，免改固件
+       注意：消息体必须只有一个 IP —— 固件是 strncpy 取 "BMS|" 之后的全部内容"""
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     s.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-    ip = _get_local_ip()
-    msg = f"BMS|{ip}".encode()
-    print(f"[Discover] 广播中: 端口{DISCOVER_PORT} 消息=BMS|{ip}")
+    ips = _local_ips()
+    targets = _broadcast_targets()
+    print(f"[Discover] 本机候选IP: {', '.join(ips)}")
+    print(f"[Discover] 广播目标: {', '.join(targets)} | 端口{DISCOVER_PORT} 间隔{interval}s")
     while True:
-        try:
-            s.sendto(msg, ("255.255.255.255", DISCOVER_PORT))
-        except Exception:
-            pass
+        for ip in ips:
+            msg = f"BMS|{ip}".encode()
+            for t in targets:
+                try:
+                    s.sendto(msg, (t, DISCOVER_PORT))
+                except Exception:
+                    pass
         time.sleep(interval)
+
 
 def run_api_server(port=8501):
     """启动 HTTP API 服务器"""
